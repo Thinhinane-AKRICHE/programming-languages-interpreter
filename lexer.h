@@ -21,8 +21,10 @@ typedef struct {
 extern int token_count;
 extern Token *tokens;
 
+char *my_strndup(const char *s, size_t n);
 void add_token(TokenType type, const char* value);
-void lexer(const char* input);
+Token *lexer(const char *input);
 void free_tokens();
+int get_token_count();
 
 #endif //LEXER_H
