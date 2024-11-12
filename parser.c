@@ -5,6 +5,9 @@
 #include "lexer.h"
 #include "parser.h"
 #include "lexer.c"
+#include "hash.c"
+#include "hash_table.h"
+
 // Initialisation de la pile
 void initialize(PILE *pile) {
     pile->TOP = -1;
@@ -146,13 +149,21 @@ ASTNode *parse(Token *tokens, int num_tokens) {
 }
 
 // Fonction récursive pour évaluer l'AST
+HashTable *variables; // Table de hachage pour stocker les variables
 int evaluate_AST(ASTNode *node) {
     if (node->type == TOKEN_NUMBER) {
         return atoi(node->value);
+    } else if (node->type == TOKEN_VARIABLE) {
+        int found;
+        int value = get_variable(variables, node->value, &found);
+        if (!found) {
+            printf("Erreur : variable non initialisée '%s'\n", node->value);
+            exit(EXIT_FAILURE);
+        }
+        return value;
     } else if (node->type == TOKEN_OPERATOR) {
         int left_val = evaluate_AST(node->left);
         int right_val = evaluate_AST(node->right);
-
         switch (node->value[0]) {
             case '+': return left_val + right_val;
             case '-': return left_val - right_val;
@@ -160,6 +171,10 @@ int evaluate_AST(ASTNode *node) {
             case '/': return right_val != 0 ? left_val / right_val : 0;
             default: printf("Opérateur inconnu\n"); return 0;
         }
+    } else if (node->type == TOKEN_ASSIGN) {
+        int value = evaluate_AST(node->right);
+        set_variable(variables, node->left->value, value);
+        return value;
     }
     return 0;
 }
@@ -176,7 +191,9 @@ void free_AST(ASTNode *node) {
 
 // Fonction principale
 int main() {
-    const char *input = "3+5*(2-3+2*4)-9";
+    const char *input = "x = 5 + 3 * (2 - 1)";
+    variables = create_table();  // Initialiser la table de hachage
+
     Token *tokens = lexer(input);  // Lexer analyse l'entrée et renvoie les tokens
     int num_tokens = get_token_count();  // Nombre de tokens générés
 
@@ -186,7 +203,9 @@ int main() {
 
     free_AST(ast);  // Libérer la mémoire de l'AST
     free_tokens();  // Libérer la mémoire des tokens
+    free_table(variables);  // Libérer la table de hachage
 
     return 0;
 }
+
 
