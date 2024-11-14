@@ -1,6 +1,7 @@
+#include "io.h"
 // io.c
 #include <stdio.h>
 
-void print(int result) {
-    printf("Résultat : %d\n", result);
+void print_result(int result) {
+    printf("Resultat : %d\n", result);
 }

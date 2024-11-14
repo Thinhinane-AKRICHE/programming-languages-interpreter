@@ -36,7 +36,7 @@ void add_token(TokenType type, const char* value) {
     // prendre la chaine de caractères et on appelle strdup qui alloue une nouvelle mémoire
     // et copie la chaine de caractères dans la nouvelle mémoire
     // et value est un pointeur qui pointe mnt vers la nouvelle mémoire
-    printf("Ajout du token: Type=%d, Value=%s\n", type, tokens[token_count].value); // Ajout d'un message de débogage
+    /*printf("Ajout du token: Type=%d, Value=%s\n", type, tokens[token_count].value); // Ajout d'un message de débogage*/
     token_count++; // Incrémenter le compteur
 }
 
@@ -106,10 +106,10 @@ Token* lexer(const char *input) {
 
     // Ajouter un token de fin pour marquer la fin de la séquence
     add_token(TOKEN_END, "");
-    printf("Nombre de tokens générés: %d\n", token_count);
-    for (int i = 0; i < token_count; i++) {
+    /*printf("Nombre de tokens generes: %d\n", token_count);*/
+    /*for (int i = 0; i < token_count; i++) {
         printf("Token %d : Type = %d, Value = %s\n", i, tokens[i].type, tokens[i].value);
-    }
+    }*/
     return tokens;  // Retourner le tableau de tokens
 }
 

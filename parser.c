@@ -8,6 +8,7 @@
 #include "hash.c"
 #include "hash_table.h"
 
+
 // Initialisation de la pile
 void initialize(PILE *pile) {
     pile->TOP = -1;
@@ -102,7 +103,7 @@ ASTNode *parse(Token *tokens, int num_tokens) {
         Token token = tokens[i];
 
         if (token.type == TOKEN_NUMBER || token.type == TOKEN_VARIABLE) {
-            ASTNode *node = create_node(TOKEN_NUMBER, token.value);
+            ASTNode *node = create_node(token.type, token.value);
             pushAST(&astStack, node);
         }
         else if (token.type == TOKEN_OPERATOR) {
@@ -133,6 +134,15 @@ ASTNode *parse(Token *tokens, int num_tokens) {
                 pop(&operatorStack); // Retirer '('
             }
         }
+        else if (token.type == TOKEN_ASSIGN) {
+            // Si on rencontre un assignement, on traite cela spécifiquement
+            ASTNode *right = popAST(&astStack); // L'expression à la droite de l'assignation
+            ASTNode *left = create_node(TOKEN_VARIABLE, token.value); // La variable à gauche de l'assignation
+            ASTNode *assignNode = create_node(TOKEN_ASSIGN, "=");
+            assignNode->left = left;
+            assignNode->right = right;
+            pushAST(&astStack, assignNode); // Ajouter le nœud d'assignation à l'AST
+        }
     }
 
     while (!isEmpty(&operatorStack)) {
@@ -150,10 +160,11 @@ ASTNode *parse(Token *tokens, int num_tokens) {
 
 // Fonction récursive pour évaluer l'AST
 HashTable *variables; // Table de hachage pour stocker les variables
-int evaluate_AST(ASTNode *node) {
+int evaluate_AST(ASTNode *node, HashTable *variables) {
     if (node->type == TOKEN_NUMBER) {
         return atoi(node->value);
     } else if (node->type == TOKEN_VARIABLE) {
+        // Recherche la valeur de la variable dans la table de hachage
         int found;
         int value = get_variable(variables, node->value, &found);
         if (!found) {
@@ -162,8 +173,9 @@ int evaluate_AST(ASTNode *node) {
         }
         return value;
     } else if (node->type == TOKEN_OPERATOR) {
-        int left_val = evaluate_AST(node->left);
-        int right_val = evaluate_AST(node->right);
+        // Évaluation des opérateurs
+        int left_val = evaluate_AST(node->left, variables);
+        int right_val = evaluate_AST(node->right, variables);
         switch (node->value[0]) {
             case '+': return left_val + right_val;
             case '-': return left_val - right_val;
@@ -172,9 +184,13 @@ int evaluate_AST(ASTNode *node) {
             default: printf("Opérateur inconnu\n"); return 0;
         }
     } else if (node->type == TOKEN_ASSIGN) {
-        int value = evaluate_AST(node->right);
+        // Pour une assignation, évalue l'expression de droite
+        int value = evaluate_AST(node->right, variables);
+        
+        // Assigner la valeur à la variable à gauche de l'assignation
         set_variable(variables, node->left->value, value);
-        return value;
+        
+        return value; // Retourne la valeur assignée
     }
     return 0;
 }
@@ -190,7 +206,7 @@ void free_AST(ASTNode *node) {
 }
 
 // Fonction principale
-int main() {
+/*int main() {
     const char *input = "x = 5 + 3 * (2 - 1)";
     variables = create_table();  // Initialiser la table de hachage
 
@@ -206,6 +222,6 @@ int main() {
     free_table(variables);  // Libérer la table de hachage
 
     return 0;
-}
+}*/
 
 
