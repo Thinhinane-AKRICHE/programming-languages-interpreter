@@ -85,16 +85,17 @@ Token* lexer(const char *input) {
       }
 
         //VARIABLES
-      if(isalpha(input[i])) { //si le caractère est une lettre
-        int depart_2 = i;
-        while(isalpha(input[i]) || isdigit(input[i])) {
-          i++;
-        }
-        char *var = my_strndup(&input[depart_2], i - depart_2);
-        add_token(TOKEN_VARIABLE, var);
-        free(var);
-        continue;
-      }
+      if (isalpha(input[i]) || input[i] == '_') { // Si le caractère est une lettre ou un underscore
+        int depart_2 = i; // Position de départ du nom de variable
+        while (isalpha(input[i]) || isdigit(input[i]) || input[i] == '_') {
+          i++; // Avance tant que c'est une lettre, un chiffre ou un underscore
+    }
+    // Crée une chaîne pour le nom de la variable
+    char *var = my_strndup(&input[depart_2], i - depart_2);
+      add_token(TOKEN_VARIABLE, var); // Ajoute le token pour la variable
+      free(var); // Libère la mémoire temporaire
+      continue;
+}
         // ASSIGNATION
       if (input[i] == '=') {
         add_token(TOKEN_ASSIGN, "=");
