@@ -135,13 +135,18 @@ ASTNode *parse(Token *tokens, int num_tokens) {
             }
         }
         else if (token.type == TOKEN_ASSIGN) {
-            // Si on rencontre un assignement, on traite cela spécifiquement
-            ASTNode *right = popAST(&astStack); // L'expression à la droite de l'assignation
-            ASTNode *left = create_node(TOKEN_VARIABLE, token.value); // La variable à gauche de l'assignation
-            ASTNode *assignNode = create_node(TOKEN_ASSIGN, "=");
-            assignNode->left = left;
-            assignNode->right = right;
-            pushAST(&astStack, assignNode); // Ajouter le nœud d'assignation à l'AST
+            if (i > 0 && tokens[i-1].type == TOKEN_VARIABLE) {
+                ASTNode *left = popAST(&astStack);
+                ASTNode *right = parse(&tokens[i+1], num_tokens - i - 1);
+                ASTNode *assignNode = create_node(TOKEN_ASSIGN, "=");
+                assignNode->left = left;
+                assignNode->right = right;
+                pushAST(&astStack, assignNode);
+                break;  // Arrêtez le parsing ici car nous avons traité toute l'expression
+            } else {
+                printf("Erreur de syntaxe : assignation invalide\n");
+                return NULL;
+            }
         }
     }
 
@@ -164,16 +169,14 @@ int evaluate_AST(ASTNode *node, HashTable *variables) {
     if (node->type == TOKEN_NUMBER) {
         return atoi(node->value);
     } else if (node->type == TOKEN_VARIABLE) {
-        // Recherche la valeur de la variable dans la table de hachage
         int found;
         int value = get_variable(variables, node->value, &found);
         if (!found) {
-            printf("Erreur : variable non initialisée '%s'\n", node->value);
-            exit(EXIT_FAILURE);
+            value = 0;
+            set_variable(variables, node->value, value);
         }
         return value;
     } else if (node->type == TOKEN_OPERATOR) {
-        // Évaluation des opérateurs
         int left_val = evaluate_AST(node->left, variables);
         int right_val = evaluate_AST(node->right, variables);
         switch (node->value[0]) {
@@ -184,17 +187,13 @@ int evaluate_AST(ASTNode *node, HashTable *variables) {
             default: printf("Opérateur inconnu\n"); return 0;
         }
     } else if (node->type == TOKEN_ASSIGN) {
-        // Pour une assignation, évalue l'expression de droite
         int value = evaluate_AST(node->right, variables);
-        
-        // Assigner la valeur à la variable à gauche de l'assignation
         set_variable(variables, node->left->value, value);
-        
-        return value; // Retourne la valeur assignée
+        return value;
     }
     return 0;
 }
-
+    
 // Fonction pour libérer l'AST
 void free_AST(ASTNode *node) {
     if (node) {
