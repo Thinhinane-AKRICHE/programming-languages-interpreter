@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <ctype.h>
 #include "lexer.h"
 #include "parser.h"
@@ -10,60 +11,63 @@
 #include "io.h"
 
 void test_interpreter(const char *input, HashTable *variables) {
-    // Étape 1 : Tokenizer l'entrée
     Token *tokens = lexer(input);
-    
     int num_tokens = get_token_count();
-    // Étape 2 : Parser pour construire l'AST
     ASTNode *ast = parse(tokens, num_tokens);
-    // Étape 3 : Évaluation de l'AST
-    int result = evaluate_AST(ast, variables);
-    print_result(result);
-    printf("Résultat de l'expression '%s' : %d\n", input, result);
-     // Libérer la mémoire
+    
+    /*printf("AST généré pour l'entrée : '%s'\n", input);
+    print_AST
+    (ast, 0);  // Affiche l'AST avec un niveau d'indentation de 0*/
+
+    if (ast->type == TOKEN_WHILE || ast->type == TOKEN_FOR) {
+        
+        evaluate_AST(ast, variables);
+        printf("Boucle exécutée\n");
+    } else {
+        int result = evaluate_AST(ast, variables);
+        print_result(result);
+        printf("Résultat de l'expression '%s' : %d\n", input, result);
+    }
+
     free_AST(ast);
     free_tokens();
 }
+
 void read_file_and_execute(const char *filename, HashTable *variables) {
-    // Ouvrir le fichier pour lire les instructions
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erreur lors de l'ouverture du fichier");
         return;
     }
 
-    // Lire le fichier ligne par ligne
-    char line[256]; // Taille d'un tableau qui peut contenir jusqu'à 255 caractères
+    char line[256];  // Déclarez la variable line ici
+    char input[1000] = "";
+    int brace_count = 0;
+    int in_control_structure = 0;
+
     while (fgets(line, sizeof(line), file)) {
-        // Supprimer le saut de ligne
-        line[strcspn(line, "\n")] = 0;
+        // ... (traitement de la ligne)
+        
+        strcat(input, line);
+        strcat(input, " ");
 
-        // Vérifier si la ligne est vide ou contient uniquement des espaces
-        if (strlen(line) == 0) {
-            continue; // Ligne vide, on l'ignore
-        }
-        int only_whitespace = 1;
         for (int i = 0; line[i] != '\0'; i++) {
-            if (!isspace(line[i])) {
-                only_whitespace = 0;
-                break;
-            }
-        }
-        if (only_whitespace) {
-            continue; // Ligne contenant uniquement des espaces
+            if (line[i] == '{') brace_count++;
+            if (line[i] == '}') brace_count--;
         }
 
-        // Afficher la ligne lue
-        printf("Ligne lue : '%s'\n", line);
+        if (strstr(line, "while") || strstr(line, "for") || brace_count > 0) {
+            in_control_structure = 1;
+        }
 
-        // Traiter la ligne avec la fonction d'interpréteur
-        test_interpreter(line, variables);
+        if (!in_control_structure || (in_control_structure && brace_count == 0)) {
+            test_interpreter(input, variables);
+            input[0] = '\0';
+            in_control_structure = 0;
+        }
     }
-
-    // Fermer le fichier après la lecture
-    fclose(file);
+    // ... (code existant)
 }
-
 
 // Fonction pour le mode interactif (REPL)
 void interactive_mode(HashTable *variables) {
@@ -90,20 +94,29 @@ int main() {
 
     printf("Test avec l'expression 'a = 3':\n");
     test_interpreter("a = 3", table);
-    //print_table(table);
+    print_table(table);
 
     printf("\nTest avec l'expression 'b = a + 3':\n");
     test_interpreter("b = a + 3", table);
-    //print_table(table);
+    print_table(table);
 
     printf("\nTest avec l'expression 'c = (a + b) * 2':\n");
     test_interpreter("c = (a + b) * 2", table);
-    //print_table(table);
+    print_table(table);
 
     printf("\nTest avec l'expression 'd = (c + b) * 2':\n");
     test_interpreter("d = (c + b) * 2", table);
-    //print_table(table);
+    print_table(table);
 
+    // Test 1 : Boucle while
+
+    printf("\nTest : Boucle while\n");
+    
+    test_interpreter("x = 0", table);
+    test_interpreter("y = 3", table);
+    set_variable(table,"y", 9);
+    test_interpreter("while (x < 5) { y = y - 2; x = x + 1 }", table);
+    
     int mode;
     printf("Choisissez un mode \n");
     printf("1. Mode fichier\n");
@@ -121,6 +134,10 @@ int main() {
     } else {
         printf("Choix invalide\n");
     }
+    // Affichez les résultats finaux des variables pour vérifier
+    printf("\nTable des variables finales :\n");
+    print_table(table);
+
     free_table(table);
     return 0;
 }

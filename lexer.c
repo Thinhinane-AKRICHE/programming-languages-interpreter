@@ -33,10 +33,6 @@ void add_token(TokenType type, const char* value) {
     
     tokens[token_count].type = type; // Assigner le type au nouveau token
     tokens[token_count].value = my_strndup(value , strlen(value));
-    // prendre la chaine de caractères et on appelle strdup qui alloue une nouvelle mémoire
-    // et copie la chaine de caractères dans la nouvelle mémoire
-    // et value est un pointeur qui pointe mnt vers la nouvelle mémoire
-    /*printf("Ajout du token: Type=%d, Value=%s\n", type, tokens[token_count].value); // Ajout d'un message de débogage*/
     token_count++; // Incrémenter le compteur
 }
 
@@ -85,16 +81,25 @@ Token* lexer(const char *input) {
       }
 
         //VARIABLES
-      if (isalpha(input[i]) || input[i] == '_') { // Si le caractère est une lettre ou un underscore
-        int depart_2 = i; // Position de départ du nom de variable
+     if (isalpha(input[i]) || input[i] == '_') {
+        int depart_2 = i;
         while (isalpha(input[i]) || isdigit(input[i]) || input[i] == '_') {
-          i++; // Avance tant que c'est une lettre, un chiffre ou un underscore
-    }
-    // Crée une chaîne pour le nom de la variable
-    char *var = my_strndup(&input[depart_2], i - depart_2);
-      add_token(TOKEN_VARIABLE, var); // Ajoute le token pour la variable
-      free(var); // Libère la mémoire temporaire
-      continue;
+            i++;
+        }
+        char *word = my_strndup(&input[depart_2], i - depart_2);
+
+        // Vérifier d'abord si c'est un mot-clé
+        if (strcmp(word, "while") == 0) {
+            add_token(TOKEN_WHILE, word);
+        } else if (strcmp(word, "for") == 0) {
+            add_token(TOKEN_FOR, word);
+        } else {
+        // Si ce n'est pas un mot-clé, c'est une variable
+        add_token(TOKEN_VARIABLE, word);
+        }
+
+    free(word);
+    continue;
 }
         // ASSIGNATION
       if (input[i] == '=') {
@@ -102,9 +107,33 @@ Token* lexer(const char *input) {
         i++;
         continue;
       }
+        // ACCOLADES
+        if (input[i] == '{') {
+          add_token(TOKEN_BRACE_OPEN, "{");
+          i++;
+          continue;
+        }
+
+        if (input[i] == '}') {
+          add_token(TOKEN_BRACE_CLOSE, "}");
+          i++;
+          continue;
+        }
+
+        if (input[i] == '<' || input[i] == '>' || input[i] == '=' || input[i] == '!') {
+            char op[3] = {input[i], '\0', '\0'};
+            if (input[i+1] == '=') {
+                op[1] = '=';
+                i++;
+            }
+            add_token(TOKEN_OPERATOR, op);
+            i++;
+            continue;
+        }
+
         i++;
     }
-
+    
     // Ajouter un token de fin pour marquer la fin de la séquence
     add_token(TOKEN_END, "");
     /*printf("Nombre de tokens generes: %d\n", token_count);*/

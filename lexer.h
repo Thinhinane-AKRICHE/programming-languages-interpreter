@@ -3,12 +3,18 @@
 
 
 typedef enum {
-    TOKEN_NUMBER,
-    TOKEN_OPERATOR,
-    TOKEN_PARENTHESIS,
-    TOKEN_VARIABLE,
-    TOKEN_ASSIGN,
-    TOKEN_END
+    TOKEN_NUMBER = 0,
+    TOKEN_OPERATOR = 1,
+    TOKEN_PARENTHESIS = 2,
+    TOKEN_VARIABLE = 3,
+    TOKEN_ASSIGN = 4,
+    TOKEN_END = 5,
+    TOKEN_BRACE_OPEN = 6,   // Accolade ouvrante "{"
+    TOKEN_BRACE_CLOSE = 7,  // Accolade fermante "}"
+    TOKEN_WHILE = 8,
+    TOKEN_FOR = 9,
+    TOKEN_BLOCK = 10,
+    TOKEN_SEMICOLON =11,
   } TokenType;
 
 

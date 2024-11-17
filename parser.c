@@ -89,8 +89,24 @@ ASTNode *create_node(TokenType type, const char *value) {
 int priority(char op) {
     if (op == '+' || op == '-') return 1;
     if (op == '*' || op == '/') return 2;
+    if (op == '<' || op == '>' || op == '=' || op == '!') return 3;
     return 0;
 }
+#include "parser.h"
+
+// Toutes vos structures et définitions ici...
+
+// Fonction pour afficher l'AST
+void print_AST(ASTNode *node, int indent) {
+    if (!node) return;
+    for (int i = 0; i < indent; i++) printf("  ");
+    printf("Node: type=%d, value=%s\n", node->type, node->value ? node->value : "NULL");
+    if (node->left) print_AST(node->left, indent + 1);
+    if (node->right) print_AST(node->right, indent + 1);
+}
+
+
+// Vos autres fonctions comme parse, evaluate_AST...
 
 // Fonction parse pour construire l'AST avec Shunting Yard
 ASTNode *parse(Token *tokens, int num_tokens) {
@@ -148,6 +164,79 @@ ASTNode *parse(Token *tokens, int num_tokens) {
                 return NULL;
             }
         }
+    else if (token.type == TOKEN_WHILE) {
+    // Créer un nœud pour la boucle while
+    ASTNode *whileNode = create_node(TOKEN_WHILE, "while");
+
+    // Parser la condition
+    int j = i + 2;  // Assumer que la condition commence après "while("
+    int condition_start = j;
+    while (tokens[j].type != TOKEN_PARENTHESIS || tokens[j].value[0] != ')') j++; // Trouver la parenthèse fermante
+    ASTNode *condition = parse(&tokens[condition_start], j - condition_start);  // Nœud de condition
+
+    // Maintenant, traiter le corps de la boucle
+    if (tokens[j + 1].type == TOKEN_BRACE_OPEN) {
+        int body_start = j + 2;
+        int body_end = body_start;
+        int brace_count = 1;
+        while (brace_count > 0) {
+            body_end++;
+            if (tokens[body_end].type == TOKEN_BRACE_OPEN) brace_count++;
+            else if (tokens[body_end].type == TOKEN_BRACE_CLOSE) brace_count--;
+        }
+        ASTNode *body = parse(&tokens[body_start], body_end - body_start);  // Nœud du corps
+
+        // Lier la condition et le corps au nœud while
+        whileNode->left = condition;
+        whileNode->right = body;
+
+        // Empiler ce nœud dans l'AST
+        pushAST(&astStack, whileNode);
+        i = body_end; // Avancer après le corps de la boucle
+    }
+}
+
+
+else if (token.type == TOKEN_FOR) {
+    // Gestion du mot-clé `for`
+    if (tokens[i + 1].type == TOKEN_PARENTHESIS && tokens[i + 1].value[0] == '(') {
+        int j = i + 2;
+        int init_start = j;
+        // Identifier les parties de la boucle for (init; condition; incrément)
+        while (tokens[j].type != TOKEN_OPERATOR || tokens[j].value[0] != ';') j++;
+        ASTNode *init = parse(&tokens[init_start], j - init_start);
+        
+        int condition_start = j + 1;
+        while (tokens[j].type != TOKEN_OPERATOR || tokens[j].value[0] != ';') j++;
+        ASTNode *condition = parse(&tokens[condition_start], j - condition_start);
+        
+        int increment_start = j + 1;
+        while (tokens[j].type != TOKEN_PARENTHESIS || tokens[j].value[0] != ')') j++;
+        ASTNode *increment = parse(&tokens[increment_start], j - increment_start);
+        
+        // Identifier le corps de la boucle
+        if (tokens[j + 1].type == TOKEN_BRACE_OPEN) {
+            int body_start = j + 2;
+            int body_end = body_start;
+            int brace_count = 1;
+            while (brace_count > 0) {
+                body_end++;
+                if (tokens[body_end].type == TOKEN_BRACE_OPEN) brace_count++;
+                else if (tokens[body_end].type == TOKEN_BRACE_CLOSE) brace_count--;
+            }
+            ASTNode *body = parse(&tokens[body_start], body_end - body_start);
+            
+            ASTNode *forNode = create_node(TOKEN_FOR, "for");
+            forNode->left = init;
+            forNode->right = condition;
+            forNode->extra = increment;
+            forNode->right->right = body; // Le corps de la boucle
+            
+            pushAST(&astStack, forNode);
+            i = body_end; // Sauter tout le bloc
+        }
+    }
+}
     }
 
     while (!isEmpty(&operatorStack)) {
@@ -166,34 +255,83 @@ ASTNode *parse(Token *tokens, int num_tokens) {
 // Fonction récursive pour évaluer l'AST
 HashTable *variables; // Table de hachage pour stocker les variables
 int evaluate_AST(ASTNode *node, HashTable *variables) {
-    if (node->type == TOKEN_NUMBER) {
-        return atoi(node->value);
-    } else if (node->type == TOKEN_VARIABLE) {
-        int found;
-        int value = get_variable(variables, node->value, &found);
-        if (!found) {
-            value = 0;
-            set_variable(variables, node->value, value);
+    if (!node) return 0;
+    // Ajout pour débogage
+    /*printf("Debug: Node type = %d\n", node->type);
+    fflush(stdout); // Force l'affichage immédiat*/
+
+    switch (node->type) {
+        case TOKEN_NUMBER:
+            return atoi(node->value);
+        case TOKEN_VARIABLE: {
+            int found;
+            int value = get_variable(variables, node->value, &found);
+            if (!found) {
+                printf("Warning: Variable '%s' not found, initializing to 0\n", node->value);
+                value = 0;
+                set_variable(variables, node->value, value);
+            }
+            return value;
         }
-        return value;
-    } else if (node->type == TOKEN_OPERATOR) {
-        int left_val = evaluate_AST(node->left, variables);
-        int right_val = evaluate_AST(node->right, variables);
-        switch (node->value[0]) {
-            case '+': return left_val + right_val;
-            case '-': return left_val - right_val;
-            case '*': return left_val * right_val;
-            case '/': return right_val != 0 ? left_val / right_val : 0;
-            default: printf("Opérateur inconnu\n"); return 0;
+        case TOKEN_OPERATOR: {
+            int left_val = evaluate_AST(node->left, variables);
+            int right_val = evaluate_AST(node->right, variables);
+            switch (node->value[0]) {
+                case '+': return left_val + right_val;
+                case '-': return left_val - right_val;
+                case '*': return left_val * right_val;
+                case '/':
+                    if (right_val == 0) {
+                        printf("Error: Division by zero\n");
+                        return 0;
+                    }
+                    return left_val / right_val;
+                case '<': return left_val < right_val;
+                case '>': return left_val > right_val;
+                case '=': return left_val == right_val;
+                case '!': return left_val != right_val;
+                default:
+                    printf("Error: Unknown operator '%c'\n", node->value[0]);
+                    return 0;
+            }
         }
-    } else if (node->type == TOKEN_ASSIGN) {
-        int value = evaluate_AST(node->right, variables);
-        set_variable(variables, node->left->value, value);
-        return value;
+        case TOKEN_ASSIGN: {
+            int value = evaluate_AST(node->right, variables);
+            set_variable(variables, node->left->value, value);
+            return value;
+        }
+        case TOKEN_WHILE: {
+            printf("Évaluation de la condition WHILE : ");
+            print_AST(node->left, 0);
+            while (evaluate_AST(node->left, variables)) {
+                printf("Condition vraie, exécution du corps\n");
+                evaluate_AST(node->right, variables);
+                print_table(variables); // Vérifie l'état des variables après chaque itération
+            }
+            printf("Fin de la boucle WHILE\n");
+        return 0;
+}
+
+        case TOKEN_FOR: {
+    // Initialisation
+    evaluate_AST(node->left, variables); 
+
+    // Condition
+    while (evaluate_AST(node->right, variables)) {
+        // Corps de la boucle
+        evaluate_AST(node->right->right, variables);
+
+        // Incrément
+        evaluate_AST(node->extra, variables);
     }
     return 0;
 }
-    
+
+        default:
+            printf("Error: Unknown node type\n");
+            return 0;
+    }
+}
 // Fonction pour libérer l'AST
 void free_AST(ASTNode *node) {
     if (node) {
@@ -204,23 +342,5 @@ void free_AST(ASTNode *node) {
     }
 }
 
-// Fonction principale
-/*int main() {
-    const char *input = "x = 5 + 3 * (2 - 1)";
-    variables = create_table();  // Initialiser la table de hachage
-
-    Token *tokens = lexer(input);  // Lexer analyse l'entrée et renvoie les tokens
-    int num_tokens = get_token_count();  // Nombre de tokens générés
-
-    ASTNode *ast = parse(tokens, num_tokens);  // Construction de l'AST
-    int result = evaluate_AST(ast);  // Évaluation de l'AST
-    printf("Résultat de l'expression '%s' : %d\n", input, result);
-
-    free_AST(ast);  // Libérer la mémoire de l'AST
-    free_tokens();  // Libérer la mémoire des tokens
-    free_table(variables);  // Libérer la table de hachage
-
-    return 0;
-}*/
 
 
