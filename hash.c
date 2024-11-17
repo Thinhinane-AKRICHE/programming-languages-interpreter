@@ -31,6 +31,7 @@ void print_table(HashTable *table) {
         }
     }
 }
+
 void free_table(HashTable *table) {
     for (int i = 0; i < TABLE_SIZE; i++) {
         Entry *entry = table->entries[i];
